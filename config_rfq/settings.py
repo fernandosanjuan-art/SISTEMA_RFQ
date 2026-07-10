@@ -38,11 +38,11 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-+vqz2mpad(o$r*=df@rmflbxu$
 # En tu máquina local: crea un .env con DEBUG=True si lo necesitas para desarrollar.
 DEBUG = os.getenv('DEBUG', 'False').strip().lower() == 'true'
 
-ALLOWED_HOSTS = ['sistemarfq-production.up.railway.app', 'localhost', '127.0.0.1']
+ALLOWED_HOSTS = ['sistemarfq-production-1d7d.up.railway.app', 'localhost', '127.0.0.1']
 
 # Añade esta sección crucial para que Django acepte las peticiones POST de Railway:
 CSRF_TRUSTED_ORIGINS = [
-    'https://sistemarfq-production.up.railway.app',
+    'https://sistemarfq-production-1d7d.up.railway.app',
 ]
 
 # O si prefieres abrirlo por completo para asegurar:
