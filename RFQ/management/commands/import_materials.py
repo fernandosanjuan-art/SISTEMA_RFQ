@@ -136,6 +136,7 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(f"Importación limpia finalizada: {count_success} registros procesados con éxito en la BD."))
 
         # Reconstruir índice SOLO después de importar los materiales
-from RFQ.services.materials.embedding_matcher import build_material_index                  
-build_material_index(force=True)   # <-- antes: build_material_index()
-self.stdout.write(self.style.SUCCESS("Índice de IA de materiales reconstruido con éxito."))
+        # (Ahora estas líneas sí están dentro del método 'handle')
+        from RFQ.services.materials.embedding_matcher import build_material_index                  
+        build_material_index(force=True)
+        self.stdout.write(self.style.SUCCESS("Índice de IA de materiales reconstruido con éxito."))
