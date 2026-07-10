@@ -1,0 +1,14 @@
+# Variables de entorno y secretos
+.env
+
+# Base de datos local
+db.sqlite3
+
+# Archivos multimedia y temporales
+media/
+tmp/
+rfq_drawings/ # (Asumo que son archivos generados/subidos, si son código fuente, quita esta línea)
+
+# Archivos de caché de Python
+__pycache__/
+*.pyc

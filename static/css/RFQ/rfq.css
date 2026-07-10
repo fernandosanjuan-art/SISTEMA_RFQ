@@ -1,0 +1,101 @@
+
+body {
+    font-family: 'Inter', sans-serif !important;
+    background-color: #f8fafc !important;
+    color: #334155;
+}
+
+.card-npi, .card-dashboard {
+    border: none !important;
+    border-radius: 16px !important;
+    background: #ffffff !important;
+    box-shadow: 0 4px 24px rgba(15, 23, 42, 0.04) !important;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card-audit {
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    background-color: #f8fafc;
+}
+
+.file-drop-zone {
+    border: 2px dashed #cbd5e1;
+    border-radius: 16px;
+    padding: 50px 20px;
+    text-align: center;
+    background-color: #ffffff;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.file-drop-zone:hover, .file-drop-zone.dragover {
+    background-color: #f1f5f9;
+    border-color: #0ea5e9; 
+    box-shadow: inset 0 0 0 4px rgba(14, 165, 233, 0.05);
+}
+
+
+.table-clean th, .table-npi th {
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.5px;
+    background-color: #f1f5f9 !important;
+    color: #475569 !important;
+    padding: 16px 12px;
+    border-bottom: 2px solid #e2e8f0 !important;
+}
+
+.table-clean td {
+    padding: 16px 12px;
+    color: #334155;
+    font-size: 0.85rem;
+    border-bottom: 1px solid #f1f5f9;
+    vertical-align: middle;
+}
+
+
+.btn-action-primary {
+    background-color: #0f172a !important; 
+    color: #ffffff !important;
+    border: none !important;
+    font-weight: 600;
+    border-radius: 10px !important;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.btn-action-primary:hover {
+    background-color: #1e293b !important; 
+    transform: translateY(-1px);
+}
+
+.btn-action-secondary {
+    background-color: #ffffff !important;
+    color: #475569 !important;
+    border: 1px solid #cbd5e1 !important;
+    font-weight: 600;
+    border-radius: 10px !important;
+    transition: all 0.2s ease;
+}
+
+.btn-action-secondary:hover {
+    background-color: #f8fafc !important;
+    border-color: #94a3b8 !important;
+    color: #0f172a !important;
+}
+
+
+.badge-indicator {
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 6px 12px;
+    border-radius: 8px;
+}
+
+.badge-status-completed { background-color: #dcfce7 !important; color: #15803d !important; font-weight: 600; }
+.badge-status-failed { background-color: #fee2e2 !important; color: #b91c1c !important; font-weight: 600; }
+
+
+.pulse-loading { animation: pulse 2s infinite ease-in-out; }
+@keyframes pulse { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }

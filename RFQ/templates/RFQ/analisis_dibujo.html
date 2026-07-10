@@ -1,0 +1,188 @@
+{% extends 'panel/base_panel.html' %}
+{% load static %}
+{% load i18n %}
+{% block content %}
+
+<div class="container mt-5">
+
+    <div class="card shadow-sm mb-4">
+
+        <div class="card-header bg-dark text-white">
+
+            <h3>
+                PDF Resin Analyzer
+            </h3>
+
+        </div>
+
+        <div class="card-body">
+
+            <form method="POST"
+                  enctype="multipart/form-data">
+
+                {% csrf_token %}
+
+                {{ form.as_p }}
+
+                <button type="submit"
+                        class="btn btn-primary">
+
+                    Analyze PDF
+
+                </button>
+
+            </form>
+
+        </div>
+
+    </div>
+
+
+    {% if analysis %}
+
+    <div class="card shadow-sm">
+
+        <div class="card-header bg-success text-white">
+
+            <h4>
+                Detection Results
+            </h4>
+
+        </div>
+
+        <div class="card-body">
+
+            <table class="table table-striped table-bordered">
+
+                <thead class="table-dark">
+
+                    <tr>
+
+                        <th>
+                            Part Number
+                        </th>
+
+                        <th>
+                            Resin
+                        </th>
+
+                        <th>
+                            Available
+                        </th>
+
+                        <th>
+                            Color
+                        </th>
+
+                        <th>
+                            Volume
+                        </th>
+
+                        <th>
+                            Weight
+                        </th>
+
+                        <th>
+                            Confidence
+                        </th>
+
+                    </tr>
+
+                </thead>
+
+                <tbody>
+
+                    {% for item in analysis.detected_materials.all %}
+
+                    <tr>
+
+                        <td>
+                            {{ item.part_number }}
+                        </td>
+
+                        <td>
+
+                            {% if item.detected_material %}
+
+                                {{ item.detected_material.commercial_name }}
+
+                            {% else %}
+
+                                NOT FOUND
+
+                            {% endif %}
+
+                        </td>
+
+                        <td>
+
+                            {% if item.detected_material %}
+
+                                <span class="badge bg-success">
+                                    YES
+                                </span>
+
+                            {% else %}
+
+                                <span class="badge bg-danger">
+                                    NO
+                                </span>
+
+                            {% endif %}
+
+                        </td>
+
+                        <td>
+
+                            {% if item.detected_color %}
+                                {{ item.detected_color }}
+                            {% else %}
+                                N/A
+                            {% endif %}
+
+                        </td>
+
+                        <td>
+
+                            {% if analysis.estimated_volume %}
+                                {{ analysis.estimated_volume|floatformat:2 }} cm³
+                            {% else %}
+                                N/A
+                            {% endif %}
+
+                        </td>
+
+                        <td>
+
+                            {% if analysis.estimated_weight %}
+                                {{ analysis.estimated_weight|floatformat:2 }} g
+                            {% else %}
+                                N/A
+                            {% endif %}
+
+                        </td>
+
+                        <td>
+
+                            {{ item.confidence }}%
+
+                        </td>
+
+                    </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+    {% endif %}
+
+</div>
+
+{% endblock %}
+

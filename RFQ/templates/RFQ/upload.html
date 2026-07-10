@@ -1,0 +1,601 @@
+{% load static %}
+{% load i18n %}
+{% load custom_filters %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'css/RFQ/rfq.css' %}">
+<style>
+    .batch-tool-btn { font-size: 0.72rem; font-weight: 600; padding: 4px 10px; border-radius: 6px; text-transform: uppercase; }
+    .dual-weight-box { font-size: 0.82rem; border-radius: 8px; padding: 10px; background-color: #f8fafc; border: 1px solid #e2e8f0; min-width: 140px; }
+    .historical-badge { font-size: 0.68rem; font-weight: 500; display: block; margin-top: 4px; color: #64748b; font-family: 'Inter', sans-serif; }
+    .card-audit { border-radius: 8px; border-left: 4px solid #cbd5e1; }
+    .card-audit.matched { border-left-color: #10b981; background-color: #f0fdf4; }
+    .card-audit.unmatched { border-left-color: #ef4444; background-color: #fef2f2; }
+    .table-clean th { font-size: 0.78rem; text-uppercase: true; color: #64748b; letter-spacing: 0.5px; padding-bottom: 12px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
+        <div>
+            <h4 class="mb-1 fw-bold text-dark">Analizador Industrial de Planos y RFQ</h4>
+            <p class="text-muted small mb-0">Consolidación conjunta de geometrías 3D e inteligencia de materiales para NPI</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="?" class="btn btn-action-secondary px-3 py-2 small d-flex align-items-center shadow-sm">
+                <i class="bi bi-arrow-clockwise me-2"></i> Nuevo Análisis
+            </a>
+            <button type="button" class="btn btn-action-secondary px-3 py-2 small d-flex align-items-center shadow-sm" data-bs-toggle="modal" data-bs-target="#historyModal">
+                <i class="bi bi-clock-history me-2"></i> Historial de Lotes
+            </button>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12 col-xl-4 mb-4">
+            <div class="card card-dashboard p-4 h-100">
+                <h6 class="fw-bold mb-4 text-dark"><i class="bi bi-cloud-upload me-2 text-primary"></i>Carga de Documentación Técnica</h6>
+                
+                <form id="rfq-hybrid-form" method="POST" enctype="multipart/form-data" class="mb-4">
+                    {% csrf_token %}
+                    <div id="drop-zone" class="file-drop-zone mb-4 d-block w-100 text-center" style="cursor: pointer;">
+                        <div class="bg-light rounded-circle d-inline-flex p-3 mb-3">
+                            <i class="bi bi-folder-plus text-primary fs-3"></i>
+                        </div>
+                        <span class="fw-bold text-dark d-block mb-1">Arrastra archivos o haz clic aquí</span>
+                        <small class="text-muted d-block" style="font-size: 0.75rem;">Formatos aceptados: .PDF, .STEP, .STP, .STL</small>
+                    </div>
+                    <input type="file" id="rfq_file" accept=".pdf,.step,.stp,.stl" class="d-none" multiple>
+
+                    <div id="file-registry-block" class="d-none mb-4">
+                        <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-1">
+                            <label class="small fw-bold text-muted text-uppercase mb-0">Estructura del Lote Actual</label>
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="form-check mb-0">
+                                    <input class="form-check-input" type="checkbox" id="selectAllFiles" onclick="toggleAllCheckboxes(this)">
+                                    <label class="form-check-label small text-muted" style="font-size: 0.75rem;" for="selectAllFiles">Todos</label>
+                                </div>
+                                <div class="d-flex gap-1">
+                                    <button type="button" class="btn btn-outline-primary batch-tool-btn" onclick="applyClassificationToSelected('maestro')">🏢 Hacer Maestro</button>
+                                    <button type="button" class="btn btn-outline-info batch-tool-btn" onclick="applyClassificationToSelected('sub')">🧩 Hacer Sub</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="file-registry-list" class="list-group shadow-sm rounded-3 border" style="max-height: 220px; overflow-y: auto;"></div>
+                    </div>
+
+                    <button type="submit" id="submit-btn" class="btn btn-action-primary w-100 py-3 small shadow-sm">
+                        <i class="bi bi-play-circle-fill me-2"></i> Ejecutar Consolidación de Pesos
+                    </button>
+                </form>
+
+                <div id="progress-container" class="d-none border-top pt-4">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="small fw-medium text-muted" id="progress-status-text">Inicializando...</span>
+                        <span class="small fw-bold text-primary" id="progress-percentage">0%</span>
+                    </div>
+                    <div class="progress rounded-pill bg-light mb-3" style="height: 8px;">
+                        <div id="progress-bar-fill" class="progress-bar bg-primary progress-bar-striped progress-bar-animated rounded-pill" role="progressbar" style="width: 0%"></div>
+                    </div>
+                    <button type="button" id="cancel-analysis-btn" class="btn btn-sm btn-outline-danger w-100 py-2 small rounded-3">
+                        <i class="bi bi-x-circle me-1"></i> Cancelar Análisis
+                    </button>
+                </div>
+
+                <div class="border-top pt-4 mt-auto">
+                    <button class="btn btn-action-secondary w-100 py-2 small d-flex justify-content-between align-items-center" type="button" data-bs-toggle="collapse" data-bs-target="#catalogCollapse">
+                        <span><i class="bi bi-search me-2"></i> Catálogo Maestro de Resinas</span>
+                        <i class="bi bi-chevron-down small"></i>
+                    </button>
+                    <div class="collapse mt-3" id="catalogCollapse">
+                        <input type="text" id="catalogSearchInput" class="form-control form-control-sm mb-3 shadow-sm" placeholder="Buscar resina, código o proveedor...">
+                        <div class="table-responsive rounded-3 border bg-white shadow-sm" style="max-height: 280px; overflow-y: auto;">
+                            <table class="table table-sm table-hover mb-0 align-middle" style="font-size: 0.72rem;" id="catalogTable">
+                                <thead class="table-light sticky-top shadow-sm">
+                                    <tr>
+                                        <th class="ps-3">Código / Info</th>
+                                        <th>Familia</th>
+                                        <th>Descripción / Proveedor</th>
+                                        <th class="text-end pe-3">Precios (Act/Ant)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for mat in all_materials_catalog %}
+                                        <tr>
+                                            <td class="fw-bold text-primary ps-3">
+                                                {{ mat.material_code }}
+                                                <span class="historical-badge">
+                                                    <i class="bi bi-calendar-event text-secondary"></i> Modif: 
+                                                    {% if mat.last_purchase_date %}
+                                                        {{ mat.last_purchase_date|date:"Y-m-d" }}
+                                                    {% else %}
+                                                        Sin fecha
+                                                    {% endif %}
+                                                </span>
+                                            </td>
+                                            <td><span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary px-2 py-1 rounded-pill">{{ mat.family }}</span></td>
+                                            <td>
+                                                <span class="text-dark fw-medium d-block">{{ mat.commercial_name }}</span>
+                                                <small class="text-muted">{{ mat.supplier }} | {{ mat.density }} g/cm³</small>
+                                            </td>
+                                            <td class="text-end pe-3">
+                                                <div class="text-success fw-bold">${{ mat.standard_price|default:"0.00" }}</div>
+                                                <div class="text-muted small font-monospace" style="font-size: 0.65rem;">
+                                                    Ant: {% if mat.last_price %}${{ mat.last_price|stringformat:".4f" }}{% else %}$0.0000{% endif %}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <div class="col-12 col-xl-8 mb-4">
+            <div id="results-wrapper-block" class="card card-dashboard p-4 h-100 d-none">
+                <div class="d-flex justify-content-between align-items-center border-bottom pb-3 mb-4 flex-wrap gap-2">
+                    <h5 class="fw-bold text-dark mb-0"><i class="bi bi-grid-1x2-fill me-2 text-primary"></i>Componentes Auditados</h5>
+                    <span class="badge bg-dark rounded-pill px-3 py-2 shadow-sm" id="lote-display-name">Lote Activo</span>
+                </div>
+
+                <div class="mb-4 bg-light p-3 rounded-3 border">
+                    <label class="small fw-bold text-muted mb-2 d-block text-uppercase">Documentos Validados:</label>
+                    <div class="d-flex flex-wrap gap-2" id="async-file-badges-container"></div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table align-middle mb-0 table-clean">
+                        <thead>
+                            <tr>
+                                <th style="width: 18%;">Número de Parte</th>
+                                <th style="width: 25%;">Descripción de Pieza</th>
+                                <th style="width: 37%;">Especificaciones de Catálogo</th>
+                                <th style="width: 20%;" class="text-end pe-3">Peso / Volumen</th>
+                            </tr>
+                        </thead>
+                        <tbody id="async-components-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            {% if detected_components %}
+                <div class="card card-dashboard p-4 h-100 mt-0">
+                    <div class="d-flex justify-content-between align-items-center border-bottom pb-3 mb-4 flex-wrap gap-2">
+                        <h5 class="fw-bold text-dark mb-0"><i class="bi bi-folder-check me-2 text-success"></i>Consulta de Historial: {{ filename }}</h5>
+                        <span class="badge bg-success bg-opacity-10 text-success border border-success rounded-pill px-3 py-2 shadow-sm">Datos Recuperados</span>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table align-middle mb-0 table-clean">
+                            <thead>
+                                <tr>
+                                    <th style="width: 18%;">Número de Parte</th>
+                                    <th style="width: 25%;">Descripción de Pieza</th>
+                                    <th style="width: 37%;">Especificaciones de Catálogo</th>
+                                    <th style="width: 20%;" class="text-end pe-3">Peso / Volumen</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for component in detected_components %}
+                                    <tr>
+                                        <td class="fw-bold text-primary fs-6">{{ component.part_number|default:"Insumo / Adicional" }}</td>
+                                        <td>
+                                            <span class="d-block fw-bold text-dark mb-1">{{ component.bom_reference|split_origin_name }}</span>
+                                            <small class="text-muted d-block text-wrap" style="font-size: 0.72rem;"><i class="bi bi-info-circle me-1"></i> {{ component.bom_reference }}</small>
+                                        </td>
+                                        <td>
+                                            {% if component.detected_material %}
+                                                <div class="p-3 card-audit matched shadow-sm bg-white">
+                                                    <div class="mb-1.5"><span class="badge bg-success text-white px-2 py-0.5 rounded-2 fw-bold">✓ Match Catálogo: {{ component.detected_material.material_code }}</span></div>
+                                                    <h6 class="text-dark fw-bold mb-1" style="font-size: 0.90rem;">{{ component.detected_material.commercial_name }}</h6>
+                                                    <div class="small text-muted mt-2" style="font-size: 0.72rem;">
+                                                        <strong>Familia:</strong> {{ component.detected_family }} | <strong>Color:</strong> {{ component.detected_color }}<br>
+                                                        <strong>Resina Alterna:</strong> {% if "Alt:" in component.bom_reference %}{{ component.bom_reference|split_origin_name }}{% else %}Ninguna registrada{% endif %}
+                                                    </div>
+                                                </div>
+                                            {% else %}
+                                                <div class="p-3 card-audit unmatched shadow-sm bg-white">
+                                                    <div class="mb-1.5"><span class="badge bg-danger text-white px-2 py-0.5 rounded-2 fw-bold">✕ No Registrado</span></div>
+                                                    <h6 class="text-danger fw-bold mb-1" style="font-size: 0.90rem;">Req: {{ component.raw_material_text }}</h6>
+                                                    <div class="small text-muted mt-2" style="font-size: 0.72rem;">
+                                                        <strong>Familia:</strong> {{ component.detected_family }} | <strong>Color:</strong> {{ component.detected_color }}<br>
+                                                        <strong>Resina Alterna:</strong> {% if "Alt:" in component.bom_reference %}{{ component.bom_reference|split_origin_name }}{% else %}Ninguna registrada{% endif %}
+                                                    </div>
+                                                </div>
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-end pe-3">
+                                            <div class="dual-weight-box text-start">
+                                                {% if component.component_weight %}
+                                                    <div class="mb-1 text-dark fw-bold"><i class="bi bi-box-seam text-primary me-1"></i> {{ component.component_weight }} g</div>
+                                                    <div class="mb-1 text-muted font-monospace small"><i class="bi bi-scales me-1"></i> {{ component.component_weight|multiply_filter:0.00220462|round_filter:4 }} lbs</div>
+                                                {% else %}
+                                                    <div class="mb-1 text-muted small"><i class="bi bi-box-seam me-1"></i> N/D</div>
+                                                    <div class="mb-1 text-muted font-monospace small"><i class="bi bi-scales me-1"></i> N/D</div>
+                                                {% endif %}
+                                                <div class="fw-bold text-info border-top pt-1 mt-1">
+                                                    <i class="bi bi-moisture me-1"></i> {% if component.component_volumen %}{{ component.component_volumen }} cm³{% else %}N/D{% endif %}
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="modal fade modal-history" id="historyModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-md modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 16px;">
+            <div class="modal-header bg-dark text-white p-3 border-0" style="border-top-left-radius: 16px; border-top-right-radius: 16px;">
+                <h5 class="modal-title fw-bold fs-6"><i class="bi bi-clock-history me-2 text-warning"></i> Historial de Lotes</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0">
+                {% if past_analyses %}
+                    <div class="list-group list-group-flush">
+                        {% for past in past_analyses %}
+                            <a href="?history_id={{ past.id }}" class="list-group-item list-group-item-action p-3 d-flex justify-content-between align-items-center text-decoration-none">
+                                <div class="text-truncate me-3">
+                                    <strong class="text-dark d-block text-truncate small" style="max-width: 280px;">{{ past.material_text|default:past.uploaded_file.name }}</strong>
+                                    <span class="text-muted d-block small mt-1" style="font-size: 0.75rem;">ID #{{ past.id }} • {{ past.uploaded_at }}</span>
+                                </div>
+                                <span class="badge {% if past.status == 'failed' %}badge-status-failed{% else %}badge-status-completed{% endif %} px-2 py-1 rounded-2 small shadow-sm">
+                                    {% if past.status == 'failed' %}✕ Abortado/Fallido{% else %}✓ Éxito{% endif %}
+                                </span>
+                            </a>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center py-5 bg-light">
+                        <i class="bi bi-inbox text-muted display-4 d-block mb-2"></i>
+                        <p class="text-muted mb-0 small fw-medium">No hay análisis registrados todavía.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+        let currentActiveAnalysisId = null;
+
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+    
+        const virtualStorage = new DataTransfer();
+        let fileMetaTypes = [];
+        
+        const zone = document.getElementById('drop-zone');
+        const input = document.getElementById('rfq_file');
+        const block = document.getElementById('file-registry-block');
+        const form = document.getElementById('rfq-hybrid-form');
+    
+        // CORRECCIÓN GLOBAL: Declaramos explícitamente las referencias nativas de control de UI
+        window.toggleAllCheckboxes = function(masterCheckbox) {
+            const checkboxes = document.querySelectorAll('.file-checkbox');
+            checkboxes.forEach(cb => cb.checked = masterCheckbox.checked);
+        };
+    
+        window.applyClassificationToSelected = function(type) {
+            const checkboxes = document.querySelectorAll('.file-checkbox:checked');
+            if (checkboxes.length === 0) { 
+                alert("Por favor, selecciona al menos un archivo marcando su casilla."); 
+                return; 
+            }
+            checkboxes.forEach(cb => {
+                const idx = parseInt(cb.value);
+                fileMetaTypes[idx] = (type === 'sub');
+                const selectField = document.getElementById(`file-select-${idx}`);
+                if (selectField) selectField.value = type;
+                cb.checked = false;
+            });
+            const masterCheck = document.getElementById('selectAllFiles');
+            if (masterCheck) masterCheck.checked = false;
+        };
+    
+        window.updateFileType = function(index, value) { 
+            fileMetaTypes[index] = (value === 'sub'); 
+        };
+        
+        window.dropIndexedFile = function(index) {
+            const freshStorage = new DataTransfer();
+            let freshMetaTypes = [];
+            Array.from(virtualStorage.files).forEach((file, idx) => {
+                if (idx !== index) { 
+                    freshStorage.items.add(file); 
+                    freshMetaTypes.push(fileMetaTypes[idx]); 
+                }
+            });
+            while(virtualStorage.items.length > 0) { virtualStorage.items.clear(); }
+            Array.from(freshStorage.files).forEach(file => virtualStorage.items.add(file));
+            fileMetaTypes = freshMetaTypes;
+            renderRegistry();
+        };
+
+        zone.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (zone.dataset.isClicking === "true") return; 
+            zone.dataset.isClicking = "true";
+            input.click();
+            setTimeout(() => { zone.dataset.isClicking = "false"; }, 500);
+        });
+        
+        zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('dragover'); });
+        zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+        zone.addEventListener('drop', (e) => { e.preventDefault(); zone.classList.remove('dragover'); appendFiles(e.dataTransfer.files); });
+        
+        input.addEventListener('change', (e) => { 
+            appendFiles(e.target.files); 
+            e.target.value = ''; 
+        });
+    
+        function appendFiles(files) {
+            Array.from(files).forEach(file => {
+                const ext = file.name.split('.').pop().toLowerCase();
+                if (["pdf", "step", "stp", "stl"].includes(ext)) {
+                    const exists = Array.from(virtualStorage.files).some(f => f.name === file.name && f.size === file.size);
+                    if (!exists) {
+                        virtualStorage.items.add(file);
+                        const isHintSub = !file.name.includes('24-4451') || ext !== 'pdf'; 
+                        fileMetaTypes.push(isHintSub);
+                    }
+                }
+            });
+            renderRegistry();
+        }
+    
+        function renderRegistry() {
+            const listContainer = document.getElementById('file-registry-list');
+            listContainer.innerHTML = '';
+            const files = virtualStorage.files;
+    
+            if (files.length > 0) {
+                block.classList.remove('d-none');
+                Array.from(files).forEach((file, index) => {
+                    const isSub = fileMetaTypes[index];
+                    const div = document.createElement('div');
+                    div.className = 'list-group-item d-flex justify-content-between align-items-center p-2 bg-white';
+                    
+                    div.innerHTML = `
+                        <div class="d-flex align-items-center text-truncate me-2 small" style="max-width: 200px;">
+                            <input class="form-check-input file-checkbox me-2 mt-0" type="checkbox" value="${index}">
+                            <i class="bi ${file.name.endsWith('.pdf') ? 'bi-file-earmark-pdf text-danger' : 'bi-box text-info'} me-2"></i>
+                            <span class="fw-medium text-truncate">${file.name}</span>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <select class="form-select form-select-sm select-file-class" style="font-size: 0.72rem; padding: 2px 20px 2px 8px;" id="file-select-${index}" onchange="updateFileType(${index}, this.value)">
+                                <option value="maestro" ${!isSub ? 'selected' : ''}>🏢 Maestro</option>
+                                <option value="sub" ${isSub ? 'selected' : ''}>🧩 Subcomponente</option>
+                            </select>
+                            <button type="button" class="btn btn-sm text-danger p-0 border-0" onclick="dropIndexedFile(${index})"><i class="bi bi-x-circle"></i></button>
+                        </div>
+                    `;
+                    listContainer.appendChild(div);
+                });
+                document.getElementById('selectAllFiles').checked = false;
+            } else { block.classList.add('d-none'); }
+        }
+    
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (virtualStorage.files.length === 0) { alert("Carga al menos un archivo técnico."); return; }
+        
+            const submitBtn = document.getElementById('submit-btn');
+            const progressContainer = document.getElementById('progress-container');
+            const progressBarFill = document.getElementById('progress-bar-fill');
+            const progressStatusText = document.getElementById('progress-status-text');
+            const progressPercentage = document.getElementById('progress-percentage');
+        
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span> Enviando al servidor...`;
+            progressContainer.classList.remove('d-none');
+            
+            progressBarFill.style.width = `10%`;
+            progressPercentage.textContent = `10%`;
+            progressStatusText.textContent = "Subiendo lote e inicializando inteligencia artificial...";
+        
+            const initialFormData = new FormData();
+            Array.from(virtualStorage.files).forEach(f => initialFormData.append('rfq_file', f));
+            
+            const typeMapping = {};
+            Array.from(virtualStorage.files).forEach((file, idx) => { typeMapping[file.name] = fileMetaTypes[idx]; });
+            initialFormData.append('manual_file_types', JSON.stringify(typeMapping));
+            initialFormData.append('csrfmiddlewaretoken', getCookie('csrftoken'));
+        
+            try {
+                const initResponse = await fetch('/analisis/rfq/upload/', { method: 'POST', body: initialFormData });
+                const initData = await initResponse.json();
+                
+                if (initData.status === 'initiated') {
+                    const analysisId = initData.analysis_id;
+                    currentActiveAnalysisId = analysisId;
+                    
+                    progressBarFill.style.width = `50%`;
+                    progressPercentage.textContent = `50%`;
+                    progressStatusText.textContent = "Analizando geometrías e indexando catálogo de materiales...";
+                    progressBarFill.classList.add('progress-bar-animated', 'progress-bar-striped');
+        
+                    const checkInterval = setInterval(async () => {
+                        try {
+                            if (!currentActiveAnalysisId) {
+                                clearInterval(checkInterval);
+                                return;
+                            }
+                            
+                            // 1. Consultamos el estado y traemos datos progresivos en tiempo real
+                            const statusRes = await fetch("{% url 'RFQ:check_analysis_status' %}?analysis_id=" + analysisId);
+                            const statusData = await statusRes.json();
+        
+                            // RENDER PROGRESIVO NPI: Si Celery ya guardó piezas, las pintamos sin esperar al PDF
+                            if (statusData.components && statusData.components.length > 0) {
+                                document.getElementById('results-wrapper-block').classList.remove('d-none');
+                                const tableBody = document.getElementById('async-components-table-body');
+                                tableBody.innerHTML = ''; // Limpiamos para evitar duplicados en cada ciclo
+                                
+                                statusData.components.forEach(comp => {
+                                    renderComponentRow(comp);
+                                });
+                            }
+
+                            if (statusData.status === 'processing') {
+                                progressBarFill.style.width = `75%`;
+                                progressPercentage.textContent = `75%`;
+                                progressStatusText.textContent = "IA activa: Extrayendo especificaciones y emparejando catálogo...";
+                            }
+                            
+                            if (statusData.status === 'completed') {
+                                clearInterval(checkInterval);
+                                progressBarFill.style.width = `90%`;
+                                progressPercentage.textContent = `90%`;
+                                progressStatusText.textContent = "Consolidando nomenclaturas industriales...";
+
+                                // 2. Cierre síncrono blindado contra errores 404 usando el reverse tag de Django
+                                const finalizeRes = await fetch(`/analisis/api/rfq/finalize-status/`, {
+                                    method: 'POST',
+                                    headers: { 
+                                        'Content-Type': 'application/json', 
+                                        'X-CSRFToken': getCookie('csrftoken') 
+                                    },
+                                    body: JSON.stringify({ 'analysis_id': analysisId })
+                                });
+                                const finalizeData = await finalizeRes.json();
+
+                                progressBarFill.style.width = `100%`;
+                                progressPercentage.textContent = `100%`;
+                                progressStatusText.textContent = "¡Análisis consolidado con éxito!";
+                                progressBarFill.classList.replace('bg-primary', 'bg-success');
+                                
+                                setTimeout(() => {
+                                    window.location.href = window.location.pathname + `?history_id=${analysisId}`;
+                                }, 1200);
+        
+                            } else if (statusData.status === 'failed') {
+                                clearInterval(checkInterval);
+                                progressBarFill.style.width = `100%`;
+                                progressPercentage.textContent = `Abortado`;
+                                progressStatusText.textContent = "Análisis detenido o cancelado.";
+                                progressBarFill.classList.replace('bg-primary', 'bg-danger');
+                                submitBtn.disabled = false;
+                                submitBtn.innerHTML = `<i class="bi bi-cpu-fill me-2"></i> Iniciar Nuevo Lote`;
+                            }
+                        } catch (pollError) {
+                            console.warn("Sincronizando respuesta estable con el contenedor...", pollError);
+                        }
+                    }, 3000);
+                }
+            } catch (err) {
+                console.error(err);
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = `<i class="bi bi-cpu-fill me-2"></i> Ejecutar Análisis`;
+            }
+        });
+
+        document.getElementById('cancel-analysis-btn').addEventListener('click', async () => {
+            if (!currentActiveAnalysisId) return;
+            if (confirm("¿Estás seguro de que deseas abortar el análisis del lote actual?")) {
+                try {
+                    const response = await fetch(`/analisis/api/rfq/cancel/`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+                        body: JSON.stringify({ 'analysis_id': currentActiveAnalysisId })
+                    });
+                    const data = await response.json();
+                    if (data.success) {
+                        currentActiveAnalysisId = null;
+                        document.getElementById('progress-bar-fill').style.width = `100%`;
+                        document.getElementById('progress-bar-fill').classList.replace('bg-primary', 'bg-danger');
+                        document.getElementById('progress-percentage').textContent = 'Abortado';
+                        document.getElementById('progress-status-text').textContent = "Operación cancelada por el usuario corporativo.";
+                        document.getElementById('submit-btn').disabled = false;
+                        document.getElementById('submit-btn').innerHTML = `<i class="bi bi-play-circle-fill me-2"></i> Ejecutar Consolidación de Pesos`;
+                    }
+                } catch (err) {
+                    console.error("Error al enviar la solicitud de cancelación:", err);
+                }
+            }
+        });
+    
+        function renderComponentRow(component) {
+            const asyncComponentsTable = document.getElementById('async-components-table-body');
+            const row = document.createElement('tr');
+            
+            const weightGrams = component.component_weight ? `${component.component_weight} g` : 'N/D';
+            const weightLbs = component.component_weight_lbs ? `${component.component_weight_lbs} lbs` : 'N/D';
+            const volumeCm3 = component.component_volumen ? `${component.component_volumen} cm³` : 'N/D';
+            const altResin = component.alternative_resin || 'Ninguna registrada';
+        
+            let materialCardHTML = '';
+            // CORRECCIÓN CLAVE: Leemos el string directo 'detected_material' que envía views.py
+            if (component.detected_material) {
+                materialCardHTML = `
+                    <div class="p-3 card-audit matched shadow-sm bg-white">
+                        <div class="mb-1.5"><span class="badge bg-success text-white px-2 py-0.5 rounded-2 fw-bold">✓ Match Catálogo: ${component.material_code || 'N/D'}</span></div>
+                        <h6 class="text-dark fw-bold mb-1" style="font-size: 0.90rem;">${component.detected_material}</h6>
+                        <div class="small text-muted mt-2" style="font-size: 0.72rem;">
+                            <strong>Familia:</strong> ${component.detected_family || 'N/D'} | <strong>Color:</strong> ${component.detected_color || 'N/D'}<br>
+                            <strong>Resina Alterna:</strong> ${altResin}
+                        </div>
+                    </div>
+                `;
+            } else {
+                materialCardHTML = `
+                    <div class="p-3 card-audit unmatched shadow-sm bg-white">
+                        <div class="mb-1.5"><span class="badge bg-danger text-white px-2 py-0.5 rounded-2 fw-bold">✕ No Registrado</span></div>
+                        <h6 class="text-danger fw-bold mb-1" style="font-size: 0.90rem;">Req: ${component.raw_material_text || 'No especificado'}</h6>
+                        <div class="small text-muted mt-2" style="font-size: 0.72rem;">
+                            <strong>Familia:</strong> ${component.detected_family || 'N/D'} | <strong>Color:</strong> ${component.detected_color || 'N/D'}<br>
+                            <strong>Resina Alterna:</strong> ${altResin}
+                        </div>
+                    </div>
+                `;
+            }
+
+            row.innerHTML = `
+                <td class="fw-bold text-primary fs-6">${component.part_number || "Insumo / Adicional"}</td>
+                <td>
+                    <span class="d-block fw-bold text-dark mb-1">${component.description || 'Componente'}</span>
+                    <small class="text-muted d-block text-wrap" style="font-size: 0.72rem;"><i class="bi bi-info-circle me-1"></i> ${component.bom_reference}</small>
+                </td>
+                <td>${materialCardHTML}</td>
+                <td class="text-end pe-3">
+                    <div class="dual-weight-box text-start">
+                        <div class="mb-1 text-dark fw-bold"><i class="bi bi-box-seam text-primary me-1"></i> ${weightGrams}</div>
+                        <div class="mb-1 text-muted font-monospace small"><i class="bi bi-scales me-1"></i> ${weightLbs}</div>
+                        <div class="fw-bold text-info border-top pt-1 mt-1"><i class="bi bi-moisture me-1"></i> ${volumeCm3}</div>
+                    </div>
+                </td>
+            `;
+            asyncComponentsTable.appendChild(row);
+        }  
+    </script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+{% endblock %}
